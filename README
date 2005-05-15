@@ -1,15 +1,17 @@
-Tk-ChooseDate version 0.3
+Tk-ChooseDate version 0.4
 =========================
 
 ChooseDate is a popup calendar widget used for choosing dates. It
 has support for using dates prior to 1970 - something with no
-other popup calendar does at time of writing.
+other Tk popup calendar does at time of writing.
 
 This widget uses a Tk::Canvas to ensure a crisp looking widget with
 many color options. The authors opinion is that it is the best
 calendar-like widget for Perl/Tk - with similar functionality of
 DateEntry - but much more user friendly as dates can be chosen
 quickly and easily.
+
+Various languages are supported since v0.4.
 
 INSTALLATION
 

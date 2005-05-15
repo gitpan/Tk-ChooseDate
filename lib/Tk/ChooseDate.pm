@@ -2,11 +2,11 @@ package Tk::ChooseDate;
 
 use vars qw($VERSION);
 
-$VERSION = '0.3';
+$VERSION = '0.4';
 
 use Tk;
 use Tk::Photo;
-use Date::Calc(qw/Calendar/);
+use Date::Calc(qw/Calendar Language Language_to_Text Decode_Language/);
 use strict;
 use Carp;
 
@@ -47,6 +47,25 @@ sub Populate {
 
   $w->SUPER::Populate($args);
   $w->{_main} = $w->toplevel;
+  my $lang = $w->{_originalLangNum} = Language();
+  $w->{_configuredLang} = $w->{_originalLang} = Language_to_Text($lang);
+
+  $w->{_langHash} = {
+    'English'    => 'English',
+    'French'     => 'Français',
+    'German'     => 'Deutsch',
+    'Spanish'    => 'Español',
+    'Portuguese' => 'Português',
+    'Dutch'      => 'Nederlands',
+    'Italian'    => 'Italiano',
+    'Norwegian'  => 'Norsk',
+    'Swedish'    => 'Svenska',
+    'Danish'     => 'Dansk',
+    'Finnish'    => 'suomi',
+    'Hungarian'  => 'Magyar',
+    'Polish'     => 'Polski',
+    'Romanian'   => 'Romaneste'
+  };
 
   # label widget and button
   my $l = $w->Label( -bd => 2, -relief => 'sunken' );
@@ -90,16 +109,17 @@ sub Populate {
   $w->ConfigSpecs(
     -activelabel => [ qw/METHOD activeLabel ActiveLabel/, 0 ],
     -background => [ $l, 'background', 'Background', 'white' ],
-    -command         => [ qw/CALLBACK command   Command/, undef ],
-    -dateformat      => [qw/PASSIVE dateFormat DateFormat 2/],
-    -datefmt         => '-dateformat',
-    -orthodox        => [qw/PASSIVE orthodox Orthodox 1/],
+    -command    => [ qw/CALLBACK command   Command/, undef ],
+    -dateformat => [qw/PASSIVE dateFormat DateFormat 2/],
+    -datefmt    => '-dateformat',
+    -language   => [ qw/METHOD language Language/,   $w->{_origLanguageText} ],
+    -orthodox   => [qw/PASSIVE orthodox Orthodox 1/],
     -daysofweekcolor =>
       [ qw/METHOD daysOfWeekColor DaysOfWeekColor/, '#444444' ],
     -datecolor        => [ qw/METHOD dateColor DateColor/,   '#444444' ],
     -yearcolor        => [ qw/METHOD yearColor YearColor/,   '#000000' ],
     -monthcolor       => [ qw/METHOD monthColor MonthColor/, '#000000' ],
-    -arrowcolor       => [ qw/METHOD arrowColor ArrowColor/, '#CCCCFF' ],
+    -arrowcolor       => [ qw/METHOD arrowColor ArrowColor/, '#777777' ],
     -arrowactivecolor =>
       [ qw/METHOD arrowActiveColor ArrowActiveColor/, '#000000' ],
     -linecolor      => [ qw/METHOD lineColor LineColor/,           '#CCCCFF' ],
@@ -504,6 +524,20 @@ sub _initCalendar {
   );
 }
 
+sub language {
+  my ( $w, $language ) = @_;
+  return $w->{_configuredLang} unless defined $language;
+  $language = ucfirst($language);
+
+  my @languages = keys %{ $w->{_langHash} };
+  unless ( grep /^$language$/, @languages ) {
+    carp "$language not a valid language";
+    return;
+  }
+  $w->{_configuredLang} = $w->{_langHash}->{$language};
+  return $w->{_configuredLang};
+}
+
 sub linecolor {
   my ( $w, $color ) = @_;
   return $w->{_linecolor} unless defined $color;
@@ -546,18 +580,43 @@ sub _parseCalendar {
   my %parsedCal;
   my $orthodox = $w->cget('-orthodox');
 
-  my $cal = Date::Calc::Calendar( $y, $m, $orthodox );
+  my $lang = $w->{_configuredLang};
+  my $cal;
+
+  # Heed this warning in Date::Calc !
+  # Note that in the current implementation of this package,
+  # the selected language is a global setting valid for ALL
+  # functions that use the names of months, days of week or
+  # languages internally, valid for ALL PROCESSES using the
+  # same copy of the 'Date::Calc' shared library in memory!
+
+  if ( $lang eq $w->{_originalLang} ) {
+    $cal = Date::Calc::Calendar( $y, $m, $orthodox );
+  }
+  else {
+
+    # Change the language temporarily - then change it
+    # back immediately
+    Language( Decode_Language($lang) );
+    $cal = Date::Calc::Calendar( $y, $m, $orthodox );
+    Language( $w->{_originalLangNum} );
+  }
 
   $cal =~ s/^\s*\n+//g;
   $cal =~ s/\s*\n+$//g;
 
   my @arr = split( "\n", $cal );
   my $monyearline = shift(@arr);
-  $monyearline =~ /(\w+) (\d+)/;
-  $parsedCal{month} = $1;
-  $parsedCal{year}  = $2;
+  $monyearline =~ s/^\s*//g;
+  $monyearline =~ s/\s*$//g;
+  my ( $mm, $yy ) = split( /\s+/, $monyearline );
+  $parsedCal{month} = $mm;
+  $parsedCal{year}  = $yy;
 
-  my @daysofweek = split( /\s+/, shift(@arr) );
+  my $dd = shift(@arr);
+  $dd =~ s/^\s*//g;
+  $dd =~ s/\s*$//g;
+  my @daysofweek = split( /\s+/, $dd );
 
   my $i = 1;
   foreach (@daysofweek) {
@@ -569,7 +628,7 @@ sub _parseCalendar {
   foreach my $line (@arr) {
 
     while ( $line =~ /\b(\d+)\b/gi ) {
-      my $val = $1;                          #warn $val;
+      my $val = $1;
       my $col = int( pos($line) / 4 ) + 1;
       $parsedCal{"$val"} = "R${row}C${col}";
     }
@@ -850,6 +909,53 @@ Specifies the color of the text for the days of the week headings.
 
 Specifies the color to highlight the chosen date.
 
+=item Name:	B<language>
+
+=item Class:	B<Language>
+
+=item Switch:	B<-language>
+
+Specifies the language of the calendar. Please see L<Date::Calc>
+for more documentation on how languages are handled.
+
+=over 4
+
+=item You must specify one of the following exactly:
+
+=over 4
+
+=item English
+
+=item French
+
+=item German
+
+=item Spanish
+
+=item Portuguese
+
+=item Dutch
+
+=item Italian
+
+=item Norwegian
+
+=item Swedish
+
+=item Danish
+
+=item Finnish
+
+=item Hungarian
+
+=item Polish
+
+=item Romanian
+
+=back
+
+=back
+
 =item Name:	B<lineColor>
 
 =item Class:	B<LineColor>
@@ -1017,8 +1123,23 @@ Fonts cannot be adjusted.
 
 =item Language
 
-Ths module has NOT been tested using the varying Language options of
-Date::Calc. Sorry - I can only support the English option.
+Ths module has now been tested using the varying language options of
+Date::Calc. All disclaimers for that module apply here as well. i.e.
+the following quote may be relevant:
+
+E<quot>I<Note that in the current implementation of this package, the selected
+language is a global setting valid for ALL functions that use the
+names of months, days of week or languages internally, valid for
+B<ALL PROCESSES> using the same copy of the L<Date::Calc> shared
+library in memory!>E<quot>
+
+To avoid this potential pitfall, Tk::ChooseDate stores the current
+language at startup and resets it on-the-fly. Before the call to
+Calendar is made, the language is changed to the one specified in the
+user options. After the call returns the language is immediately set
+back to the original. This likely has some speed implications on
+slower computers - but I do not note much of a difference and I
+was not intending on benchmarking it.
 
 =back
 

@@ -1,23 +1,28 @@
-#ChooseDate ** A popup calendar widget **
+#ChooseDate - Popup calendar
 
 use Tk;
 use Tk::ChooseDate;
 
 use vars qw/$TOP/;
-use subs qw/choosedate_getdate/;
-use vars qw/$cd_mod $cd_date $cd_button $cd_label/;
+use vars qw/$cd_i @cd_color $cd_col $r1 $r2 $r3/;
 
 sub choosedate {
   my ($demo) = @_;
   my $text = qq/
-Popup calendar for choosing
-dates quickly. Although there
-is only read-only access
-via the widget, the get and
-set methods allow one to
-retrieve and change
-the date programmatically.
+Popup calendar for
+choosing dates quickly.
+Support for varying
+languages and dates
+before 1970.
+It is a read-only
+widget, but the get
+and set methods
+allow one to retrieve
+and change the date
+programmatically.
 /;
+
+@cd_color = qw(CC FF AA);
   $TOP = $MW->WidgetDemo(
     -name             => $demo,
     -text             => $text,
@@ -26,16 +31,16 @@ the date programmatically.
     -geometry_manager => 'grid',
   );
 
-  $cd_mod = $TOP->ChooseDate->grid(-sticky =>'ew');
-  $cd_button = $TOP->Button(-text=>"Get Date", -command=>\&choosedate_getdate)->grid( -sticky => 'nsew' );
-  $cd_label = $TOP->Label(-text=>undef)->grid(-sticky=>'ew');
+  $cd_i = 0;
+  foreach (qw/English French German Spanish Portuguese
+              Dutch Italian Norwegian Swedish Danish Finnish
+              Hungarian Polish Romanian/){
+     $cd_col='#'.$cd_color[(int(rand(3)))].$cd_color[(int(rand(3)))].$cd_color[(int(rand(3)))];
+     $TOP->Label(-text=>$_)->grid(-row=>$cd_i, -column=>0, -sticky=>'e');
+     $TOP->ChooseDate(-highlightcolor=>$cd_col,-language=>$_)->grid(-row=>$cd_i, -column=>1,-sticky =>'w');
+     $cd_i++;
+  }
 
-}
-
-sub choosedate_getdate
-{
-  $cd_date = $cd_mod->get;
-  $cd_label->configure(-text=>$cd_date);
 }
 
 return 1 if caller();
